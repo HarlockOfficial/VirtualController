@@ -5,6 +5,7 @@ Will then connect to the WebsocketServer
 And will lastly wait for keyboard input to generate data with the generator, feed them into the classificator and send the classification result to the WebsocketServer
 """
 import datetime
+import pickle
 
 import keyboard
 import sys
@@ -12,10 +13,13 @@ import sys
 import tensorflow as tf
 import websocket
 
+import random
+import numpy as np
+
 tf.random.set_seed(42)
-# random.seed(42)
-# np.random.seed(42)
-# np.random.RandomState(42)
+random.seed(42)
+np.random.seed(42)
+np.random.RandomState(42)
 
 def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection):
     seed = tf.random.normal([1, 500, 50])
@@ -43,18 +47,22 @@ def connect_to_websocket_server(websocket_server_url: str):
 
 
 def load_generators(path_to_generators):
-    right_generator = tf.keras.models.load_model(f"{path_to_generators}/right_generator")
-    left_generator = tf.keras.models.load_model(f"{path_to_generators}/left_generator")
-    feet_generator = tf.keras.models.load_model(f"{path_to_generators}/feet_generator")
+    right_generator = tf.keras.models.load_model(f"{path_to_generators}/generator_right_hand.keras")
+    right_generator.summary()
+    left_generator = tf.keras.models.load_model(f"{path_to_generators}/generator_left_hand.keras")
+    left_generator.summary()
+    feet_generator = tf.keras.models.load_model(f"{path_to_generators}/generator_feet.keras")
+    feet_generator.summary()
     return right_generator, left_generator, feet_generator
 
 
 def load_classificator(path_to_classificator):
-    return tf.keras.models.load_model(path_to_classificator)
+    pipe = pickle.load(open(f"{path_to_classificator}", "rb"))
+    return pipe
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print("Usage: main.py <path_to_generators> <path_to_classificator> <websocket_server_url>")
         sys.exit(1)
 
