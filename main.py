@@ -47,12 +47,9 @@ def connect_to_websocket_server(websocket_server_url: str):
 
 
 def load_generators(path_to_generators):
-    right_generator = tf.keras.models.load_model(f"{path_to_generators}/generator_right_hand.keras")
-    right_generator.summary()
-    left_generator = tf.keras.models.load_model(f"{path_to_generators}/generator_left_hand.keras")
-    left_generator.summary()
-    feet_generator = tf.keras.models.load_model(f"{path_to_generators}/generator_feet.keras")
-    feet_generator.summary()
+    right_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_right_hand", call_endpoint='serving_default')
+    left_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_left_hand", call_endpoint='serving_default')
+    feet_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_feet", call_endpoint='serving_default')
     return right_generator, left_generator, feet_generator
 
 
