@@ -58,6 +58,16 @@ def load_classificator(path_to_classificator):
     return pipe
 
 
+def main(path_to_generators, path_to_classificator, websocket_server_url):
+    right_generator, left_generator, feet_generator = load_generators(path_to_generators)
+    classificator = load_classificator(path_to_classificator)
+    connection = connect_to_websocket_server(websocket_server_url)
+    setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection)
+    keyboard.wait('esc')
+    keyboard.clear_all_hotkeys()
+    connection.close()
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("Usage: main.py <path_to_generators> <path_to_classificator> <websocket_server_url>")
@@ -66,10 +76,4 @@ if __name__ == "__main__":
     path_to_generators = sys.argv[1]
     path_to_classificator = sys.argv[2]
     websocket_server_url = sys.argv[3]
-    right_generator, left_generator, feet_generator = load_generators(path_to_generators)
-    classificator = load_classificator(path_to_classificator)
-    connection = connect_to_websocket_server(websocket_server_url)
-    setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection)
-    keyboard.wait('esc')
-    keyboard.clear_all_hotkeys()
-    connection.close()
+    main(path_to_generators, path_to_classificator, websocket_server_url)
