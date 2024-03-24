@@ -5,9 +5,10 @@ Will then connect to the WebsocketServer
 And will lastly wait for keyboard input to generate data with the generator, feed them into the classificator and send the classification result to the WebsocketServer
 """
 import datetime
+import enum
 import pickle
 
-import keyboard
+import sshkeyboard
 import sys
 
 import tensorflow as tf
@@ -21,25 +22,46 @@ random.seed(42)
 np.random.seed(42)
 np.random.RandomState(42)
 
+class KeyStatus(enum.Enum):
+    UP = 0
+    DOWN = 1
+
 def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection):
-    seed = tf.random.normal([1, 500, 50])
-    def on_key(e: keyboard.KeyboardEvent, generator, label):
+    key = KeyStatus.UP
+    def on_key(generator, label):
         with open('log.txt', 'a') as f:
-            f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label} {e.event_type}\n")
-        while e.event_type == keyboard.KEY_DOWN:
-            data = generator.predict(seed)
-            classification = classificator.predict(data)
+            f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label}\n")
+        while key == KeyStatus.DOWN:
+            seed = tf.random.normal([1, 58, 65])
+            data = generator(seed)['output_0']
+            data = data.numpy()
+            classification = classificator.predict(data)[0]
             connection.send(classification)
         with open('log.txt', 'a') as f:
-            f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label} {e.event_type}\n")
+            f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label}\n")
 
-    on_right_key = lambda e: on_key(e, right_generator, 'right')
-    on_left_key = lambda e: on_key(e, left_generator, 'left')
-    on_feet_key = lambda e: on_key(e, feet_generator, 'feet')
+    def press(k):
+        print(f"{k} key pressed")
+        nonlocal key
+        if k in ['a', 'd', 'w', 'space']:
+            key = KeyStatus.DOWN
+        if k == 'a':
+            on_left_key()
+        elif k == 'd':
+            on_right_key()
+        elif k == 'w' or k == 'space':
+            on_feet_key()
 
-    keyboard.hook_key('a', on_right_key)
-    keyboard.hook_key('d', on_left_key)
-    keyboard.hook_key('space', on_feet_key)
+    def release(k):
+        print(f"{k} key released")
+        nonlocal key
+        if k in ['a', 'd', 'w', 'space']:
+            key = KeyStatus.UP
+
+    on_right_key = lambda: on_key(right_generator, 'right')
+    on_left_key = lambda: on_key(left_generator, 'left')
+    on_feet_key = lambda: on_key(feet_generator, 'feet')
+    sshkeyboard.listen_keyboard(on_press=press, on_release=release, sequential=False, until='esc')
 
 
 def connect_to_websocket_server(websocket_server_url: str):
@@ -63,8 +85,6 @@ def main(path_to_generators, path_to_classificator, websocket_server_url):
     classificator = load_classificator(path_to_classificator)
     connection = connect_to_websocket_server(websocket_server_url)
     setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection)
-    keyboard.wait('esc')
-    keyboard.clear_all_hotkeys()
     connection.close()
 
 
