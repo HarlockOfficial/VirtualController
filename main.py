@@ -17,6 +17,8 @@ import websocket
 import random
 import numpy as np
 
+import EEGClassificator.utils
+
 tf.random.set_seed(42)
 random.seed(42)
 np.random.seed(42)
@@ -36,6 +38,7 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
             data = generator(seed)['output_0']
             data = data.numpy()
             classification = classificator.predict(data)[0]
+            classification = EEGClassificator.utils.from_categorical(classification.item())
             connection.send(classification)
         with open('log.txt', 'a') as f:
             f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label}\n")
@@ -84,7 +87,10 @@ def main(path_to_generators, path_to_classificator, websocket_server_url):
     right_generator, left_generator, feet_generator = load_generators(path_to_generators)
     classificator = load_classificator(path_to_classificator)
     connection = connect_to_websocket_server(websocket_server_url)
-    setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection)
+    try:
+        setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection)
+    except KeyboardInterrupt:
+        pass
     connection.close()
 
 
