@@ -30,9 +30,7 @@ class KeyStatus(enum.Enum):
 
 def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection):
     key = KeyStatus.UP
-    def on_key(generator, label):
-        with open('log.txt', 'a') as f:
-            f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label}\n")
+    def on_key(generator):
         while key == KeyStatus.DOWN:
             seed = tf.random.normal([1, 58, 65])
             data = generator(seed)['output_0']
@@ -40,8 +38,6 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
             classification = classificator.predict(data)[0]
             classification = EEGClassificator.utils.from_categorical(classification.item())
             connection.send(classification)
-        with open('log.txt', 'a') as f:
-            f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {label}\n")
 
     def press(k):
         print(f"{k} key pressed")
@@ -61,9 +57,9 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
         if k in ['a', 'd', 'w', 'space']:
             key = KeyStatus.UP
 
-    on_right_key = lambda: on_key(right_generator, 'right')
-    on_left_key = lambda: on_key(left_generator, 'left')
-    on_feet_key = lambda: on_key(feet_generator, 'feet')
+    on_right_key = lambda: on_key(right_generator)
+    on_left_key = lambda: on_key(left_generator)
+    on_feet_key = lambda: on_key(feet_generator)
     sshkeyboard.listen_keyboard(on_press=press, on_release=release, sequential=False, until='esc')
 
 
