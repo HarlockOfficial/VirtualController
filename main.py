@@ -6,6 +6,7 @@ And will lastly wait for keyboard input to generate data with the generator, fee
 """
 import datetime
 import enum
+import os
 import pickle
 
 import sshkeyboard
@@ -33,8 +34,7 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
     def on_key(generator):
         while key == KeyStatus.DOWN:
             seed = tf.random.normal([1, 58, 65])
-            data = generator(seed)['output_0']
-            data = data.numpy()
+            data = generator(seed)
             classification = classificator.predict(data)[0]
             classification = EEGClassificator.utils.from_categorical(classification.item())
             connection.send(classification)
@@ -67,10 +67,37 @@ def connect_to_websocket_server(websocket_server_url: str):
     return websocket.create_connection(websocket_server_url)
 
 
-def load_generators(path_to_generators):
-    right_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_right_hand", call_endpoint='serving_default')
-    left_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_left_hand", call_endpoint='serving_default')
-    feet_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_feet", call_endpoint='serving_default')
+def load_generators(path_to_generators, device=None):
+    def is_keras_model(path):
+        files = os.listdir(path)
+        return sum(1 if (os.path.isdir(tmp_path) and 'saved_model.pb' in os.listdir(tmp_path)) else 0
+            for tmp_path in [os.path.join(path, file) for file in files]) == 3
+
+    def is_pkl_model(path):
+        files = os.listdir(path)
+        return sum(1 if file.endswith(".pkl") else 0 for file in files) == 3
+
+    if is_keras_model(path_to_generators):
+        tmp_right_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_right_hand", call_endpoint='serving_default')
+        tmp_left_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_left_hand", call_endpoint='serving_default')
+        tmp_feet_generator = tf.keras.layers.TFSMLayer(f"{path_to_generators}/generator_feet", call_endpoint='serving_default')
+        right_generator = lambda x: tmp_right_generator(x)['output_0'].numpy()
+        left_generator = lambda x: tmp_left_generator(x)['output_0'].numpy()
+        feet_generator = lambda x: tmp_feet_generator(x)['output_0'].numpy()
+    elif is_pkl_model(path_to_generators):
+        tmp_right_generator = pickle.load(open(f"{path_to_generators}/generator_right_hand.pkl", "rb"))
+        tmp_left_generator = pickle.load(open(f"{path_to_generators}/generator_left_hand.pkl", "rb"))
+        tmp_feet_generator = pickle.load(open(f"{path_to_generators}/generator_feet.pkl", "rb"))
+        if device is not None:
+            tmp_right_generator = tmp_right_generator.to(device)
+            tmp_left_generator = tmp_left_generator.to(device)
+            tmp_feet_generator = tmp_feet_generator.to(device)
+        # generators that use eegfusenet return 2 params, first is generated data, second is useless for us
+        right_generator = lambda x: tmp_right_generator(x)[0]
+        left_generator = lambda x: tmp_left_generator(x)[0]
+        feet_generator = lambda x: tmp_feet_generator(x)[0]
+    else:
+        raise ValueError("Generators must be either a Keras model or a pickle file")
     return right_generator, left_generator, feet_generator
 
 
