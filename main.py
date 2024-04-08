@@ -40,7 +40,8 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
             connection.send(classification)
 
     def press(k):
-        print(f"{k} key pressed")
+        # did block code due to high multitasking
+        # print(f"{k} key pressed")
         nonlocal key
         if k in ['a', 'd', 'w', 'space']:
             key = KeyStatus.DOWN
@@ -52,7 +53,8 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
             on_feet_key()
 
     def release(k):
-        print(f"{k} key released")
+        # did block code due to high multitasking
+        # print(f"{k} key released")
         nonlocal key
         if k in ['a', 'd', 'w', 'space']:
             key = KeyStatus.UP
