@@ -4,19 +4,17 @@ Will then load the classificator model
 Will then connect to the WebsocketServer
 And will lastly wait for keyboard input to generate data with the generator, feed them into the classificator and send the classification result to the WebsocketServer
 """
-import datetime
 import enum
 import os
 import pickle
-
-import sshkeyboard
+import random
 import sys
 
-import tensorflow as tf
-import websocket
-
-import random
 import numpy as np
+import sshkeyboard
+import tensorflow as tf
+import torch
+import websocket
 
 import EEGClassificator.utils
 
@@ -29,12 +27,14 @@ class KeyStatus(enum.Enum):
     UP = 0
     DOWN = 1
 
-def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection):
+def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection, device):
     key = KeyStatus.UP
     def on_key(generator):
         while key == KeyStatus.DOWN:
-            seed = tf.random.normal([1, 58, 65])
+            seed = torch.rand([1, 1, 58, 65]).to(device).to(torch.float32)
             data = generator(seed)
+            data = data.detach().cpu().numpy()
+            data = np.squeeze(data, axis=1)
             classification = classificator.predict(data)[0]
             classification = EEGClassificator.utils.from_categorical(classification.item())
             connection.send(classification)
@@ -60,6 +60,7 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
     on_right_key = lambda: on_key(right_generator)
     on_left_key = lambda: on_key(left_generator)
     on_feet_key = lambda: on_key(feet_generator)
+    print("Press 'a' to generate data for the left hand, 'd' for the right hand and 'w' or 'space' for the feet")
     sshkeyboard.listen_keyboard(on_press=press, on_release=release, sequential=False, until='esc')
 
 
@@ -107,11 +108,12 @@ def load_classificator(path_to_classificator):
 
 
 def main(path_to_generators, path_to_classificator, websocket_server_url):
-    right_generator, left_generator, feet_generator = load_generators(path_to_generators)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    right_generator, left_generator, feet_generator = load_generators(path_to_generators, device=device)
     classificator = load_classificator(path_to_classificator)
     connection = connect_to_websocket_server(websocket_server_url)
     try:
-        setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection)
+        setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection, device)
     except KeyboardInterrupt:
         pass
     connection.close()
