@@ -27,10 +27,10 @@ class KeyStatus(enum.Enum):
     UP = 0
     DOWN = 1
 
-def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection, device):
+def setup_keyboard_input(right_generator, left_generator, feet_generator, classificator, connection, device, on_key_down=None, on_key_up=None):
     key = KeyStatus.UP
-    def on_key(generator):
-        while key == KeyStatus.DOWN:
+    def _on_key(generator, _key):
+        while _key == KeyStatus.DOWN:
             seed = torch.rand([1, 1, 58, 65]).to(device).to(torch.float32)
             data = generator(seed)
             data = data.detach().cpu().numpy()
@@ -38,6 +38,13 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
             classification = classificator.predict(data)[0]
             classification = EEGClassificator.utils.from_categorical(classification.item())
             connection.send(classification)
+
+    if on_key_down is None:
+        on_key_down = _on_key
+
+    on_right_key = lambda: on_key_down(right_generator, key)
+    on_left_key = lambda: on_key_down(left_generator, key)
+    on_feet_key = lambda: on_key_down(feet_generator, key)
 
     def press(k):
         # did block code due to high multitasking
@@ -58,10 +65,10 @@ def setup_keyboard_input(right_generator, left_generator, feet_generator, classi
         nonlocal key
         if k in ['a', 'd', 'w', 'space']:
             key = KeyStatus.UP
+            if on_key_up is not None:
+                on_key_up(key)
 
-    on_right_key = lambda: on_key(right_generator)
-    on_left_key = lambda: on_key(left_generator)
-    on_feet_key = lambda: on_key(feet_generator)
+
     print("Press 'a' to generate data for the left hand, 'd' for the right hand and 'w' or 'space' for the feet")
     sshkeyboard.listen_keyboard(on_press=press, on_release=release, sequential=False, until='esc')
 
